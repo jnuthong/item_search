@@ -130,8 +130,22 @@ func RunBulk(bulk *mgo.Bulk) (*mgo.BulkResult, error){
 // UPDATE ----------- update mongo data --------------
 
 // update the current doc or insert new one depend on whether corresponding doc path exist or not
-func UpdateOrInsert_Doc(c *mgo.Collection, id string){
-	x := c.find(bson.M{"id": id})	
+// Ref : http://godoc.org/gopkg.in/mgo.v2#Query.Apply
+// Ref : http://docs.mongodb.org/manual/tutorial/modify-documents/ 
+func UpdateOrInsert_FieldByDocID(c *mgo.Collection, id string, field string, value interface{})(*mgo.ChangeInfo, error){
+	change := mgo.Change{
+			Update : bson.M{"$set" : bson.M{field : value}, 
+					 "$currentDate" : bson.M{ "updateTime" : true}},
+			ReturnNew : true,
+		}
+
+	var result interface{}
+	info, err := c.Find(bson.M{"id": id}).Apply(change, &result)
+	if err != nil{
+		fmt.Println(err)
+	}
+	fmt.Println(result)
+	return info, nil
 }
 
 /*

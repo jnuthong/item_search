@@ -20,7 +20,7 @@ type Child struct{
 	label string
 } 
 
-type Iterator struct{
+type Iterator interface{
 	Next() *Element
 	Previous() *Element
 }
@@ -43,5 +43,5 @@ func (opt *Element) GetElementAttribute(key string) interface{} {
 	if key == "label"{
 		return opt.label
 	}
-	return errors.News("[error] Couldnt find the relevant key: " + key)
+	return errors.New("[error] Couldnt find the relevant key: " + key)
 }
