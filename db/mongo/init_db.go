@@ -8,7 +8,7 @@ import ("fmt"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	// "github.com/jnuthong/item_search"
+	"github.com/jnuthong/item_search/utils/log"
 )
 
 type Object map[string] interface{}
@@ -20,15 +20,15 @@ type MongoObj struct {
 	db 	*mgo.Database
 }
 
-func (opt *MongoObj) getSessioni() (*mgo.Session) {
+func (opt *MongoObj) GetSessioni() (*mgo.Session) {
 	return opt.session
 }
 
-func (opt *MongoObj) getDb() (*mgo.Database){
+func (opt *MongoObj) GetDb() (*mgo.Database){
 	return opt.db
 }
 
-func (opt *MongoObj) getCollection () (*mgo.Collection){
+func (opt *MongoObj) GetCollection () (*mgo.Collection){
 	return opt.collection
 }
 
@@ -129,22 +129,53 @@ func RunBulk(bulk *mgo.Bulk) (*mgo.BulkResult, error){
 
 // UPDATE ----------- update mongo data --------------
 
+func UpdateOrInsert_DocByDocID(c *mgo.Collection, id string, value map[string]interface{}) (*mgo.ChangeInfo, error){
+	out := c.Find(bson.M{"id": id})
+	doc := bson.M{}
+	for sub_key, sub_value := range value{
+		doc[sub_key] = sub_value			
+	}
+
+	// couldn't find the document, so insert the new document
+	if count, err := out.Count(); count == 0 && err == nil{
+		c.Insert(doc)
+		return nil, nil
+	}
+
+	change := mgo.Change{
+			Update : bson.M{"$set": doc},
+			ReturnNew : true,
+			Upsert : true,
+	}
+	var result interface{}
+	info, err := out.Apply(change, &result)
+	if err != nil{
+		log.Log("error", fmt.Sprintf("%s", err))
+		return info, err
+	}
+	return info, nil
+}
+
 // update the current doc or insert new one depend on whether corresponding doc path exist or not
 // Ref : http://godoc.org/gopkg.in/mgo.v2#Query.Apply
 // Ref : http://docs.mongodb.org/manual/tutorial/modify-documents/ 
 func UpdateOrInsert_FieldByDocID(c *mgo.Collection, id string, field string, value interface{})(*mgo.ChangeInfo, error){
+	out := c.Find(bson.M{"id": id})
+	if count, err := out.Count(); count == 0 && err == nil{
+		c.Insert(bson.M{"id": id, field: value})
+		return nil, nil
+	}
+
 	change := mgo.Change{
-			Update : bson.M{"$set" : bson.M{field : value}, 
-					 "$currentDate" : bson.M{ "updateTime" : true}},
+			Update : bson.M{"$set" : bson.M{field : value}}, 
 			ReturnNew : true,
 		}
 
 	var result interface{}
-	info, err := c.Find(bson.M{"id": id}).Apply(change, &result)
+	info, err := out.Apply(change, &result)
 	if err != nil{
-		fmt.Println(err)
+		log.Log("error", fmt.Sprintf("%s", err))
 	}
-	fmt.Println(result)
 	return info, nil
 }
 
@@ -154,6 +185,12 @@ func UpdateByID(c *mgo.Collection, id string, value interface{}) error {
 }
 
 // QUERY ------------ set up PIPE query line ---------------
+
+func Find(db *mgo.Database, c_name string, query interface{}) {
+	c := db.C(c_name)
+	r := c.Find(query)
+}
+
 // REF: http://docs.mongodb.org/manual/core/aggregation-pipeline/
 func Pipe(c *mgo.Collection) *mgo.Pipe {
 

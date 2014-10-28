@@ -11,8 +11,10 @@ import (
 	
 	"github.com/fatih/structs"
 	"github.com/barakmich/glog"
+	"github.com/jnuthong/item_search/logic"
 	"github.com/jnuthong/item_search/utils"	
 	"github.com/jnuthong/item_search/db/mongo"
+	"github.com/jnuthong/item_search/utils/log"
 )
 
 var (
@@ -83,11 +85,20 @@ func main(){
 		fmt.Println(err)
 		os.Exit(0)
 	}
+	if *inputFile == ""{
+		fmt.Println("[error] Expect Parameter --inputFile been set")
+		os.Exit(-1)
+	}
 
-	// fmt.Println(x)
 	// TODO should consider another way to config the index list
 	mongodb_path := "mongodb://" + conf.User + ":" + conf.Password + "@" +  conf.Address + ":" + conf.Port + "/" + conf.DefaultDBName
-	fmt.Println("[info] Connect Mongo Address: ", mongodb_path)
+	log.Log("info", "[info] Connect Mongo Address: " + mongodb_path)
 	db_instance, err := mongo.CreateMongoDBCollection(mongodb_path, x)	
 	fmt.Println(db_instance)
+	c := db_instance.GetCollection()
+	fmt.Println(*inputFile)
+	err = logic.InsertDocWithFile(*inputFile, "", c)
+	if err != nil {
+		fmt.Println(err)
+	}
 }

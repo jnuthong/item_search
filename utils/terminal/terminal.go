@@ -11,9 +11,11 @@ import (
 
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
+	"github.com/imdario/mergo"
 
 	"github.com/jnuthong/item_search/utils"
 	"github.com/jnuthong/item_search/utils/log"
+	"github.com/jnuthong/item_search/db/mongo"
 )
 
 // REF: https://github.com/peterh/liner
@@ -38,6 +40,9 @@ var (
 // main function in define the query syntax
 func InitVM() *otto.Otto{
 	vm := otto.New()
+	
+	vm.Set("search", "search")
+	vm.Set("match", "match")
 
 	// .has function achiev the && operation
 	// using compose function to optimize the query 
@@ -51,7 +56,7 @@ func InitVM() *otto.Otto{
 			if err != nil{
 				fmt.Println(err)
 			}
-			if method != "search" || method != "match" {
+			if method != "search" && method != "match" {
 				fmt.Println("[Error] Current has function only support method: search & match!")
 				return otto.NullValue()
 			}
@@ -60,14 +65,13 @@ func InitVM() *otto.Otto{
 				fmt.Println(err)
 			}
 			// using operator $regex
-			var instance map[string]interface{}
+			instance := make(map[string]interface{})
 			if method == "search"{
 				instance[field] = map[string]string{"$regex": "/*" + value  + "*/"}	
 			}else{
 				instance[field] = value
-			}
-			
-			if result, err := otto.ToValue(instance); err == nil{
+			}	
+			if result, err := vm.ToValue(instance); err == nil{
 				return result
 			}
 		// range search: smaller < vlaue < bigger
@@ -77,7 +81,7 @@ func InitVM() *otto.Otto{
 				fmt.Println(err)
 			}
 			value := call.Argument(3).Object()
-			var instance map[string]interface{}
+			instance := make(map[string]interface{})
 			instance[field] = value
 			if result, err := otto.ToValue(instance); err == nil{
 				return result
@@ -132,7 +136,29 @@ func runUnsafe(script string, vm *otto.Otto) otto.Value{
 	return value
 }
 
-func Repl(histPath string) error {
+func CmdParser(cmd string, vm *otto.Otto) error{
+	cmd_list, cmd_num := utils.PathParser(cmd, ".")
+	hasCommand := func(cmd string) bool {
+		return strings.Contains(cmd, "has")
+	}
+	var has_list []string
+	has_list = utils.FilterString(hasCommand, cmd_list, cmd_num, has_list)
+
+	// package all the has function parameter into VARIABLE:acc
+	acc := make(map[string]interface{})
+	for index := range has_list{
+		value, err := runUnsafe(has_list[index], vm).Export()
+		if err != nil{
+			log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n")
+			continue
+		}
+		mergo.Merge(&acc, value)
+	}
+	// fmt.Println("---- result ----\n", acc)		
+	return acc
+}
+
+func Repl(histPath string, *mongo.MongoIndex) error {
 	term, err := InitTerm(histPath)
 	if err != nil{
 		info := utils.CurrentCallerInfo()
@@ -143,6 +169,7 @@ func Repl(histPath string) error {
 	var (
 		prompt = ps1
 		code = ""
+		vm = InitVM()
 	)
 	
 	for {
@@ -187,9 +214,9 @@ func Repl(histPath string) error {
 				// do another thing here
 				code = strings.Trim(code, ";")
 				fmt.Println("------ Command ------\n" + code + "\n")
-				cmd_list, cmd_count := utils.PathParser(code, ".")
-				fmt.Println(cmd_list, cmd_count)
 				// call function here
+				err := CmdParser(code, vm)
+				fmt.Println(err)
 				code = ""
 			}
 		}
