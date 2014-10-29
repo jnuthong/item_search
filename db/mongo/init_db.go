@@ -9,6 +9,7 @@ import ("fmt"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"github.com/jnuthong/item_search/utils/log"
+	"github.com/jnuthong/item_search/utils"
 )
 
 type Object map[string] interface{}
@@ -88,6 +89,26 @@ func CreateMongoDBCollection (addr string, option interface{}) (*MongoObj, error
 			}	
 		}
 	}
+
+	var instance MongoObj
+	instance.db = conn.DB(dbName.(string))
+	instance.session = conn
+	instance.collection = db.C(dbCollection.(string))
+	return &instance, nil
+}
+
+// Connection MongoDB
+func ConnectMongoDBCollection(addr string, option interface{}) (*MongoObj, error){
+	conn, err := mgo.Dial(addr)
+	if err != nil{
+		return nil, err
+	}
+	conn.SetSafe(&mgo.Safe{})
+
+	dbName := option.(map[string]interface{})["DefaultDBName"]
+	db := conn.DB(dbName.(string))
+
+	dbCollection := option.(map[string]interface{})["DefaultCollection"] 	// setting the default Collection Name 
 
 	var instance MongoObj
 	instance.db = conn.DB(dbName.(string))
@@ -179,18 +200,20 @@ func UpdateOrInsert_FieldByDocID(c *mgo.Collection, id string, field string, val
 	return info, nil
 }
 
-/*
-func UpdateByID(c *mgo.Collection, id string, value interface{}) error {
 	
-}
-
 // QUERY ------------ set up PIPE query line ---------------
 
-func Find(db *mgo.Database, c_name string, query interface{}) {
-	c := db.C(c_name)
-	r := c.Find(query)
+func Find(col *mgo.Collection, query interface{}) (result *mgo.Query, count int) {
+	r := col.Find(query)
+	count, err := r.Count() 
+	if err != nil{
+		info :=  utils.CurrentCallerInfo()
+		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
+	}
+	return r ,count
 }
 
+/*
 // REF: http://docs.mongodb.org/manual/core/aggregation-pipeline/
 func Pipe(c *mgo.Collection) *mgo.Pipe {
 

@@ -90,16 +90,39 @@ func InitVM() *otto.Otto{
 		return otto.NullValue()
 	})
 	
+	inner_function := func(value_list []otto.Value, filter int) otto.Value{
+		sub_function := func(key string) map[string]int{
+			x := make(map[string]int)
+			x[key] = filter
+			return x
+		}
+
+		instance := make(map[string]interface{})
+		for i := range value_list {
+			if x, err := value_list[i].ToString(); err == nil{
+				mergo.Merge(&instance, sub_function(x))
+			}
+		}
+		
+		if result, err := otto.ToValue(instance); err == nil{
+			return result
+		}	
+		return otto.NullValue()
+	}
+	
 	// .with function filter the relevant field
-	// TODO list
-	vm.Set("with", func(call otto.FunctionCall) otto.Value{		
-			return otto.NullValue()
+	vm.Set("with", func(call otto.FunctionCall) otto.Value{
+		return inner_function(call.ArgumentList, 1)
 	})
 
 	// .without function filter the unwanted field
 	vm.Set("without", func(call otto.FunctionCall) otto.Value{
-			return otto.NullValue()		
+		return inner_function(call.ArgumentList, 0)
 	})
+
+	// .out function 
+	// .limit function
+	// .count function
 	return vm
 }
 
@@ -136,29 +159,34 @@ func runUnsafe(script string, vm *otto.Otto) otto.Value{
 	return value
 }
 
-func CmdParser(cmd string, vm *otto.Otto) error{
+func CmdParser(cmd string, vm *otto.Otto) (map[string]interface{}, error){
 	cmd_list, cmd_num := utils.PathParser(cmd, ".")
-	hasCommand := func(cmd string) bool {
-		return strings.Contains(cmd, "has")
-	}
-	var has_list []string
-	has_list = utils.FilterString(hasCommand, cmd_list, cmd_num, has_list)
+	support_cmd := []string{"has", "with", "without", "out"}
 
 	// package all the has function parameter into VARIABLE:acc
 	acc := make(map[string]interface{})
-	for index := range has_list{
-		value, err := runUnsafe(has_list[index], vm).Export()
-		if err != nil{
-			log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n")
-			continue
+	for i := range support_cmd {
+		command := func(cmd string) bool {
+			return strings.Contains(cmd, support_cmd[i])
 		}
-		mergo.Merge(&acc, value)
+		
+		var has_list []string
+		has_list = utils.FilterString(command, cmd_list, cmd_num, has_list)
+		
+		for index := range has_list{
+			value, err := runUnsafe(has_list[index], vm).Export()
+			if err != nil{
+				log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n")
+				continue
+			}
+			mergo.Merge(&acc, value)
+		}
 	}
-	// fmt.Println("---- result ----\n", acc)		
-	return acc
+
+	return acc, nil
 }
 
-func Repl(histPath string, *mongo.MongoIndex) error {
+func Repl(histPath string, db *mongo.MongoObj) error {
 	term, err := InitTerm(histPath)
 	if err != nil{
 		info := utils.CurrentCallerInfo()
@@ -211,12 +239,17 @@ func Repl(histPath string, *mongo.MongoIndex) error {
 				fmt.Println("bye!")
 				os.Exit(0)
 			default:
-				// do another thing here
 				code = strings.Trim(code, ";")
 				fmt.Println("------ Command ------\n" + code + "\n")
-				// call function here
-				err := CmdParser(code, vm)
-				fmt.Println(err)
+
+				x, err := CmdParser(code, vm)
+				if err != nil{
+					log.Log("error", "[error] " + fmt.Sprintln("%s", err))
+				}
+				r, count := mongo.Find(db.GetCollection(), x)
+				fmt.Println("++++++ Result ++++++")
+				fmt.Println("Get ", count, " docs")
+				fmt.Println(fmt.Sprintf("Detail : %+v", r))
 				code = ""
 			}
 		}
