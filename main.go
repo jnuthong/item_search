@@ -6,21 +6,26 @@ import (
 	"os"
 	"errors"
 	"fmt"
+	"runtime"
+	"path"
 
 	"io/ioutil"
 	
-	"github.com/fatih/structs"
+	// "github.com/fatih/structs"
 	"github.com/barakmich/glog"
 	"github.com/jnuthong/item_search/logic"
 	"github.com/jnuthong/item_search/utils"	
-	"github.com/jnuthong/item_search/db/mongo"
+	// "github.com/jnuthong/item_search/db/mongo"
 	"github.com/jnuthong/item_search/utils/log"
+	"github.com/jnuthong/item_search/conf"
 )
 
 var (
 	config =  flag.String("config",  "/home/users/hongjianbin/.jumbo/lib/go/site/src/github.com/jnuthong/item_search/" + "conf.go", "config file path")	
 	inputFile = flag.String("inputFile", "", "file to load, the data format in the file should following the FILELOAD.README file")
 	logDir = flag.String("logDir", "", "log file directory")
+	_, file_name, _, _ = runtime.Caller(0)
+	dir = path.Dir(file_name)
 )
 
 type Configuration struct {
@@ -71,16 +76,8 @@ func main(){
 		config_path = *config
 	}
 
-	/*
-	var input_path string // input file path
-
-	if err != nil{
-		glog.Fatalln(err)
-	}
-	*/
-	
-	conf, err := LoadConfigurationFile(config_path)
-	x := structs.New(conf).Map()
+	conf, err := conf.LoadConfigurationFile(config_path)
+	// x := structs.New(conf).Map()
 	if err != nil{
 		fmt.Println(err)
 		os.Exit(0)
@@ -93,11 +90,13 @@ func main(){
 	// TODO should consider another way to config the index list
 	mongodb_path := "mongodb://" + conf.User + ":" + conf.Password + "@" +  conf.Address + ":" + conf.Port + "/" + conf.DefaultDBName
 	log.Log("info", "[info] Connect Mongo Address: " + mongodb_path)
-	db_instance, err := mongo.CreateMongoDBCollection(mongodb_path, x)	
-	fmt.Println(db_instance)
-	c := db_instance.GetCollection()
-	fmt.Println(*inputFile)
-	err = logic.InsertDocWithFile(*inputFile, "", c)
+	// db_instance, err := mongo.CreateMongoDBCollection(mongodb_path, x)	
+	// fmt.Println(db_instance)
+	// c := db_instance.GetCollection()
+	fmt.Println("InputFile - " + *inputFile)
+	// err = logic.InsertDocWithFile(*inputFile, "", c)
+	// err = logic.MultiChan_InsertDocWithFile(*inputFile, dir + "/data/output", c)
+	err = logic.MultiClient_InsertDocWithFile(*inputFile, dir + "/data/output", *conf)
 	if err != nil {
 		fmt.Println(err)
 	}

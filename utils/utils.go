@@ -3,11 +3,12 @@ package utils
 // package main
 
 import ("runtime"
-	// "fmt"
 	"os"
 	"strconv"
 	"os/exec"
 	"strings"
+	"fmt"
+	
 )
 
 type function func(value interface{}) interface{}
@@ -51,10 +52,29 @@ func Exists(path string) bool{
 	return false
 }
 
+func GetAllFiles(dir string) ([]string, error){
+	out, err := exec.Command("ls", dir).CombinedOutput()
+	if err != nil{
+		return []string{}, err
+	}
+	s := string(out[:])
+	return strings.Split(strings.Trim(s, "\n\r"), "\n"), nil
+}
+
+func DelAll_DirFiles(path string) error{
+	err := os.RemoveAll(path)
+	if err != nil{
+		return err
+	}
+	err = os.Mkdir(path, 0777)
+	return err
+}
+
 func CountFileLines(path string) (int, error){
-	out, err := exec.Command(path).Output()
+	out, err := exec.Command("wc", "-l", path).CombinedOutput()
 	if err == nil{
-		i, err := strconv.Atoi(string(out[:]))
+		out_new := strings.Split(fmt.Sprintf("%s", out), " ")[0]
+		i, err := strconv.Atoi(out_new)
 		return i, err
 	}
 	return 0, err

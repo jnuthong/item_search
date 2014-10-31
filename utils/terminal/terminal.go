@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 	"fmt"
+	//"bytes"
 	"path/filepath"
+	"encoding/json"
 
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
@@ -33,6 +35,7 @@ var (
 	ps1 = "item >"
 	ps2 = " ... >"	
 
+	LIMIT = 10
 	file_dir, err =filepath.Abs(filepath.Dir(os.Args[0]))
        	history = file_dir + "/" + ".history"
 )
@@ -67,7 +70,7 @@ func InitVM() *otto.Otto{
 			// using operator $regex
 			instance := make(map[string]interface{})
 			if method == "search"{
-				instance[field] = map[string]string{"$regex": "/*" + value  + "*/"}	
+				instance[field] = map[string]string{"$regex": value}	
 			}else{
 				instance[field] = value
 			}	
@@ -240,6 +243,9 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 				os.Exit(0)
 			default:
 				code = strings.Trim(code, ";")
+				if(len(code) == 0){
+					continue
+				}
 				fmt.Println("------ Command ------\n" + code + "\n")
 
 				x, err := CmdParser(code, vm)
@@ -247,9 +253,26 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 					log.Log("error", "[error] " + fmt.Sprintln("%s", err))
 				}
 				r, count := mongo.Find(db.GetCollection(), x)
+				defer r.Close()
 				fmt.Println("++++++ Result ++++++")
-				fmt.Println("Get ", count, " docs")
-				fmt.Println(fmt.Sprintf("Detail : %+v", r))
+				if (count == 0) {
+					code = ""
+					continue	
+				}
+				for i := 1; i <= LIMIT; i++{
+					var x interface{}
+					r.Next(&x)
+					x, err := json.Marshal(x)
+					if err != nil{
+						info :=utils.CurrentCallerInfo()
+						log.Log("error", "[error] " + fmt.Sprintln("%s", err) + "\n" + info)
+					}
+					fmt.Println(fmt.Sprintf("Record %v :\n %s", i, x))
+				}
+				fmt.Println("... \nGet ", count, " docs")
+				// var y []interface{}
+				// r.All(&y)
+				// fmt.Println("Match docs number %v", len(y))
 				code = ""
 			}
 		}

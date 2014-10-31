@@ -5,6 +5,7 @@ import ("fmt"
 	// "errors"
 	// "encoding/json"
 	// "reflect"
+	"encoding/json"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -149,6 +150,11 @@ func RunBulk(bulk *mgo.Bulk) (*mgo.BulkResult, error){
 }
 
 // UPDATE ----------- update mongo data --------------
+/*
+func Upsert(c *mgo.Collection, id string, value map[string] interface{}) (*mgo.ChangeInfo, error){
+
+}
+*/
 
 func UpdateOrInsert_DocByDocID(c *mgo.Collection, id string, value map[string]interface{}) (*mgo.ChangeInfo, error){
 	out := c.Find(bson.M{"id": id})
@@ -169,12 +175,13 @@ func UpdateOrInsert_DocByDocID(c *mgo.Collection, id string, value map[string]in
 			Upsert : true,
 	}
 	var result interface{}
-	info, err := out.Apply(change, &result)
+	change_info, err := out.Apply(change, &result)
 	if err != nil{
-		log.Log("error", fmt.Sprintf("%s", err))
-		return info, err
+		info := utils.CurrentCallerInfo()
+		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
+		return change_info, err
 	}
-	return info, nil
+	return change_info, nil
 }
 
 // update the current doc or insert new one depend on whether corresponding doc path exist or not
@@ -195,7 +202,8 @@ func UpdateOrInsert_FieldByDocID(c *mgo.Collection, id string, field string, val
 	var result interface{}
 	info, err := out.Apply(change, &result)
 	if err != nil{
-		log.Log("error", fmt.Sprintf("%s", err))
+		info :=  utils.CurrentCallerInfo()
+		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
 	}
 	return info, nil
 }
@@ -203,14 +211,27 @@ func UpdateOrInsert_FieldByDocID(c *mgo.Collection, id string, field string, val
 	
 // QUERY ------------ set up PIPE query line ---------------
 
-func Find(col *mgo.Collection, query interface{}) (result *mgo.Query, count int) {
+func Find(col *mgo.Collection, query interface{}) (result *mgo.Iter, count int) {
 	r := col.Find(query)
-	count, err := r.Count() 
+	x, err := json.Marshal(query)
+	if err != nil{
+		info := utils.CurrentCallerInfo()
+		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
+	}
+
+	count, err = r.Count()
+	if err != nil{
+		info := utils.CurrentCallerInfo()
+		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
+	}
+
+	// record query sentence
+	log.Log("query", "[Info] " + "query <sentence> - \n" + fmt.Sprintf("%s", x))
 	if err != nil{
 		info :=  utils.CurrentCallerInfo()
 		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
 	}
-	return r ,count
+	return r.Iter(), count
 }
 
 /*
