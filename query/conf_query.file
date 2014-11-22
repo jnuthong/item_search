@@ -1,0 +1,47 @@
+{
+	"Catalog":
+	[
+		{
+			"City": "beijing",
+			"Field_index":
+			[
+				{
+					"Name" : "meitian_xl",
+					"Weight" : 0.4,
+					"Function": "x",
+					"High_order": "False",
+					"High_order_func": ""	
+				},
+				{
+					"Name" : "dianping_xl",
+					"Weight" : 0.2,
+					"Function": "x",
+					"High_order": "False",
+					"High_order_func": ""	
+				},
+				{
+					"Name" : "lashou_xl",
+					"Weight" : 0.1,
+					"Function": "x",
+					"High_order": "False",
+					"High_order_func": ""	
+				},
+				{
+					"Name" : "nuomi_xl",
+					"Weight" : 0.3,
+					"Function": "x",
+					"High_order": "False",
+					"High_order_func": ""	
+				},
+				{
+					"Name" : "55_xl",
+					"Weight" : 0,
+					"Function": "x",
+					"High_order": "False",
+					"High_order_func": ""	
+				}
+			]
+		}
+		
+	]
+}
