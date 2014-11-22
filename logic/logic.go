@@ -72,12 +72,14 @@ func InsertDocLineHanler(c *mgo.Collection, line string) error {
 		var data []utils.Element
 		err := json.Unmarshal([]byte(tuple[object]), &data)
 		if err != nil{
-			log.Log("error", fmt.Sprintf("%s", err))
+			info := utils.CurrentCallerInfo()	
+			log.Log("error", info + fmt.Sprintf("%s", err))
 			return nil
 		}
 		for index := range data{
 			utils.UpdateMap(data[index], &doc)	
 		}
+		
 		path := utils.GeneElement("path", "hello")
 		utils.UpdateMap(path, &doc)	
 		utils.UpdateMap(utils.GeneElement("id", subject_list[sub_length - 1]), &doc)

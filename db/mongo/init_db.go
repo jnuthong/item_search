@@ -1,4 +1,4 @@
-
+// Author: hongjianbin@baidu.com
 package mongo
 
 import ("fmt"

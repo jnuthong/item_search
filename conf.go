@@ -1,5 +1,5 @@
 {
-	"DefaultDBName" : "graph",	
+	"DefaultDBName" : "groupon",	
 	"DefaultMongIndexKey" : "id",		
 	"DefaultCollection" : "default_collection",
 	"User" : "mongo",
@@ -9,8 +9,8 @@
 	"Index": 
 	[
 		{"key": "path"}, 
-		{"key": "id"}, 
-		{"key": "name"}
+		{"key": "bid"}, 
+		{"key": "city"}
 	],
 	"Other": "other"
 }

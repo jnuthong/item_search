@@ -19,6 +19,7 @@ import (
 	"github.com/jnuthong/item_search/utils/log"
 	// "github.com/jnuthong/item_search/utils/statistic"
 	"github.com/jnuthong/item_search/db/mongo"
+	"github.com/jnuthong/item_search/query"
 )
 
 // REF: https://github.com/peterh/liner
@@ -300,16 +301,15 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 				os.Exit(0)
 			default:
 				code = strings.Trim(code, ";")
-				if(len(code) == 0){
-					continue
-				}
+				if(len(code) == 0){ continue }
 				fmt.Println("------ Command ------\n" + code + "\n")
 
 				x, y, err := CmdParser(code, vm)
 				if err != nil{
 					log.Log("error", "[error] " + fmt.Sprintln("%s", err))
+					fmt.Println(y)
 				}
-				fmt.Println(y)
+
 				r, count := mongo.Find(db.GetCollection(), x)
 				defer r.Close()
 				fmt.Println("++++++ Result ++++++")
@@ -317,6 +317,19 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 					code = ""
 					continue	
 				}
+				
+				result := query.Query(r, count)
+				for {
+					v := result.Pop()
+					if v == nil{ break }
+					x, err := json.Marshal(v)
+					if err != nil{
+						info :=utils.CurrentCallerInfo()
+						log.Log("error", "[error] " + fmt.Sprintln("%s", err) + "\n" + info)
+					}
+					fmt.Println(fmt.Sprintf("%s", x))
+				}
+
 				/*
 				for key := range y{
 					if key == "hist"{
@@ -332,9 +345,10 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 					}
 					code = ""
 					continue
-				}
-				*/
+				} */
+
 				// no inner function process
+				/* code for print result
 				for i := 1; i <= LIMIT; i++{
 					var x interface{}
 					r.Next(&x)
@@ -345,10 +359,8 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 					}
 					fmt.Println(fmt.Sprintf("Record %v :\n %s", i, x))
 				}
+				*/
 				fmt.Println("... \nGet ", count, " docs")
-				// var y []interface{}
-				// r.All(&y)
-				// fmt.Println("Match docs number %v", len(y))
 				code = ""
 			}
 		}
