@@ -21,8 +21,15 @@ type Child struct{
 } 
 
 type Iterator interface{
-	Next() *Element
-	Previous() *Element
+	Next(result interface{}) bool
+}
+
+type Iter struct{
+	value interface{}
+}
+
+func (iter *Iter) Next(result interface{}) bool{
+	return true		
 }
 
 func GeneElement(key string, value interface{}, datatype string, label string) *Element{

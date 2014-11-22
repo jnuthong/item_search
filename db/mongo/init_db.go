@@ -5,6 +5,7 @@ import ("fmt"
 	// "errors"
 	// "encoding/json"
 	// "reflect"
+	"time"
 	"encoding/json"
 
 	"gopkg.in/mgo.v2"
@@ -114,6 +115,7 @@ func ConnectMongoDBCollection(addr string, option interface{}) (*MongoObj, error
 	var instance MongoObj
 	instance.db = conn.DB(dbName.(string))
 	instance.session = conn
+	conn.SetSocketTimeout(1 * time.Hour) // extend the session socket time
 	instance.collection = db.C(dbCollection.(string))
 	return &instance, nil
 }
@@ -218,7 +220,6 @@ func Find(col *mgo.Collection, query interface{}) (result *mgo.Iter, count int) 
 		info := utils.CurrentCallerInfo()
 		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
 	}
-
 	count, err = r.Count()
 	if err != nil{
 		info := utils.CurrentCallerInfo()
@@ -227,10 +228,6 @@ func Find(col *mgo.Collection, query interface{}) (result *mgo.Iter, count int) 
 
 	// record query sentence
 	log.Log("query", "[Info] " + "query <sentence> - \n" + fmt.Sprintf("%s", x))
-	if err != nil{
-		info :=  utils.CurrentCallerInfo()
-		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
-	}
 	return r.Iter(), count
 }
 

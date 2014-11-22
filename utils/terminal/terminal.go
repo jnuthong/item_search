@@ -17,6 +17,7 @@ import (
 
 	"github.com/jnuthong/item_search/utils"
 	"github.com/jnuthong/item_search/utils/log"
+	// "github.com/jnuthong/item_search/utils/statistic"
 	"github.com/jnuthong/item_search/db/mongo"
 )
 
@@ -32,12 +33,15 @@ type VM struct {
 }
 
 var (
-	ps1 = "item >"
-	ps2 = " ... >"	
+	ps1 		= "item >"
+	ps2 		= " ... >"	
 
-	LIMIT = 10
-	file_dir, err =filepath.Abs(filepath.Dir(os.Args[0]))
-       	history = file_dir + "/" + ".history"
+	LIMIT 		= 10
+	file_dir, err 	= filepath.Abs(filepath.Dir(os.Args[0]))
+       	history 	= file_dir + "/" + ".history"
+
+	support_cmd 	= []string{"has", "with", "without", "out"}		// cmd for mongo query
+	inner_cmd 	= []string{"hist"}					// cmd for local process
 )
 
 // main function in define the query syntax
@@ -126,6 +130,33 @@ func InitVM() *otto.Otto{
 	// .out function 
 	// .limit function
 	// .count function
+	// .freq function
+	// .hist function
+	// FUNCTION:hist TODO list: & operation and || operation
+	// return a list of list
+	vm.Set("hist", func(call otto.FunctionCall) otto.Value{
+		// example: graph.has(field, search, value)...hist("field1&field2", "field3", ...)
+
+		var instance [][]string
+		for i := range call.ArgumentList {
+			if call.ArgumentList[i].IsDefined(){
+				tmp, err := call.ArgumentList[i].ToString()
+				if err != nil{
+					info := utils.CurrentCallerInfo()
+					log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
+					continue
+				}
+				str, count := utils.PathParser(tmp, "&")
+				if (count == 0){ continue }
+				instance = append(instance, str)
+			}	
+		}
+
+		if result, err := otto.ToValue(instance); err == nil{
+			return result
+		}
+		return otto.NullValue()
+	})
 	return vm
 }
 
@@ -155,40 +186,66 @@ func runUnsafe(script string, vm *otto.Otto) otto.Value{
 
 	value, err := vm.Run(script)
 	if err != nil{
-		info := utils.CurrentCallerInfo()	 
-		log.Log("error", fmt.Sprintf("%s", err) + "\n" + info)
+		info := utils.CurrentCallerInfo() 
+		log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
 	}
 
 	return value
 }
 
-func CmdParser(cmd string, vm *otto.Otto) (map[string]interface{}, error){
+func CmdParser(cmd string, vm *otto.Otto) (map[string]interface{}, map[string]interface{}, error){
 	cmd_list, cmd_num := utils.PathParser(cmd, ".")
-	support_cmd := []string{"has", "with", "without", "out"}
+	support_cmd 	= append(support_cmd, inner_cmd...)
+	
+	// package all the has function parameter into VARIABLE:acc as final query send to mongo/database
+	// service
+	acc := make(map[string]interface{}) 				// query send to the database
+	inner_acc := make(map[string]interface{})			// query used in called inner function
 
-	// package all the has function parameter into VARIABLE:acc
-	acc := make(map[string]interface{})
 	for i := range support_cmd {
 		command := func(cmd string) bool {
 			return strings.Contains(cmd, support_cmd[i])
 		}
-		
+	
+		// filter out the same command
 		var has_list []string
 		has_list = utils.FilterString(command, cmd_list, cmd_num, has_list)
-		
+
+		// if the command is inner defined, create a branch and break
+		// inner_cmd only support trigger by the first parameters
+		new := utils.StringToInterface(inner_cmd)
+		if utils.InList(support_cmd[i], new){
+			if len(has_list) > 1{
+				info := utils.CurrentCallerInfo()
+				log.Log("warn", "[warn] " + fmt.Sprintf("%s", err) + "\n" + info)
+			}else if len(has_list) == 0{
+				continue
+			}
+
+			value, err := runUnsafe(has_list[0], vm).Export()
+			if err != nil{
+				info := utils.CurrentCallerInfo()
+				log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
+			}
+			inner_acc[support_cmd[i]] = value
+			continue	
+		}
+
 		for index := range has_list{
 			value, err := runUnsafe(has_list[index], vm).Export()
 			if err != nil{
-				log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n")
+				info := utils.CurrentCallerInfo()
+				log.Log("error", "[error] " + fmt.Sprintf("%s", err) + "\n" + info)
 				continue
 			}
 			mergo.Merge(&acc, value)
 		}
 	}
 
-	return acc, nil
+	return acc, inner_acc, nil
 }
 
+// main terminal function
 func Repl(histPath string, db *mongo.MongoObj) error {
 	term, err := InitTerm(histPath)
 	if err != nil{
@@ -248,10 +305,11 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 				}
 				fmt.Println("------ Command ------\n" + code + "\n")
 
-				x, err := CmdParser(code, vm)
+				x, y, err := CmdParser(code, vm)
 				if err != nil{
 					log.Log("error", "[error] " + fmt.Sprintln("%s", err))
 				}
+				fmt.Println(y)
 				r, count := mongo.Find(db.GetCollection(), x)
 				defer r.Close()
 				fmt.Println("++++++ Result ++++++")
@@ -259,6 +317,24 @@ func Repl(histPath string, db *mongo.MongoObj) error {
 					code = ""
 					continue	
 				}
+				/*
+				for key := range y{
+					if key == "hist"{
+						fmt.Printf("Call histogram function to compute the query result, total match result number : %d", count)
+						switch y[key].(type) {
+						case [][]string:
+							statistic.Hist(r, y[key].([][]string))
+						default:
+							info := utils.CurrentCallerInfo()
+							log.Log("error", "[error] " + "Expect [][]string type, but get " + fmt.Sprintf("%s", y[key]) + "\n" + info)
+						}
+
+					}
+					code = ""
+					continue
+				}
+				*/
+				// no inner function process
 				for i := 1; i <= LIMIT; i++{
 					var x interface{}
 					r.Next(&x)

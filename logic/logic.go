@@ -81,18 +81,22 @@ func InsertDocLineHanler(c *mgo.Collection, line string) error {
 		path := utils.GeneElement("path", "hello")
 		utils.UpdateMap(path, &doc)	
 		utils.UpdateMap(utils.GeneElement("id", subject_list[sub_length - 1]), &doc)
-		info, err := mongo.UpdateOrInsert_DocByDocID(c, subject_list[sub_length - 1], doc)
-		log.Log("info", "[Info] " + fmt.Sprintf("%s", info))
-		return nil
-	case "tag":
-		var data []utils.Comment_tag	
-		err := json.Unmarshal([]byte(tuple[object]), &data)
+		// info, err := mongo.UpdateOrInsert_DocByDocID(c, subject_list[sub_length - 1], doc)
+		// log.Log("info", "[Info] " + fmt.Sprintf("%s", info))
+		err = mongo.InsertDoc(c, doc)
 		if err != nil{
-			log.Log("error", fmt.Sprintf("%s", err))
-			return nil
+			log.Log("error", "[error] " + fmt.Sprintf("%s", err))
 		}
-		info, err := mongo.UpdateOrInsert_FieldByDocID(c, subject_list[sub_length - 1], predicate_list[pre_length - 1], data)
-		log.Log("info", "[Info] " + fmt.Sprintf("%s", err) + "\n")
+		return nil
+	//case "tag":
+	//	var data []utils.Comment_tag	
+	//	err := json.Unmarshal([]byte(tuple[object]), &data)
+	//	if err != nil{
+	//		log.Log("error", fmt.Sprintf("%s", err))
+	//		return nil
+	//	}
+	//	info, err := mongo.UpdateOrInsert_FieldByDocID(c, subject_list[sub_length - 1], predicate_list[pre_length - 1], data)
+	//	log.Log("info", "[Info] " + fmt.Sprintf("%s", err) + "\n")
 	default:
 		return nil
 	}			
@@ -122,7 +126,6 @@ func InsertDocWithFile(inputPath string, outputPath string, c *mgo.Collection) e
 	return nil
 }
 
-/*
 // multi-chan for insertDocWithFile with a single connected client
 func MultiChan_InsertDocWithFile(inputPath string, outputPath string, c *mgo.Collection) error {
 	insertDoc := func(input string, output string) error {
@@ -149,7 +152,6 @@ func MultiChan_InsertDocWithFile(inputPath string, outputPath string, c *mgo.Col
 	err := multiChannel.MultipleChannel_ProcessFile("part", inputPath, outputPath, tmpIn, tmpOut, insertDoc)	
 	return err
 }
-*/
 
 func MultiClient_InsertDocWithFile(inputPath string, outputPath string, c conf.Configuration) error{
 	mongodb_path := "mongodb://" + c.User + ":" + c.Password + "@" +  c.Address + ":" + c.Port + "/" + c.DefaultDBName

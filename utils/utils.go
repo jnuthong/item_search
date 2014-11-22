@@ -80,6 +80,41 @@ func CountFileLines(path string) (int, error){
 	return 0, err
 }
 
+func ToString(v interface{}) string{
+	switch v.(type) {
+		case string: return v.(string)
+		case int:
+			strconv.Itoa(v.(int))
+		default:
+			fmt.Sprintf("%s", v)
+	}
+	return ""
+}
+
+// TODO more type concern
+// IMPORTANT: key in nesting map structure should be string
+func PathLook(path []string, v map[string] interface{}) interface{}{
+	if len(path) == 0{
+		return nil
+	}
+	value, ok := v[path[0]]
+	if !ok {
+		return nil
+	}
+	switch value.(type) {
+		case []interface{}:
+			var result []interface{}
+			for i := range value.([]interface{}){
+				result = append(result, PathLook(path[1:len(path)], value.([]interface{})[i].(map[string]interface{})))
+			}
+			return result	
+		case map[interface{}]interface{}:
+			return PathLook(path[1:len(path)], value.(map[string]interface{}))
+		default:
+			return value	
+	}
+}
+
 func PathParser(path string, delimiter string) ([]string, int) {
 	str := strings.Split(path, delimiter)
 	return str, len(str)
@@ -91,6 +126,24 @@ func JoinPath(xs []string, delimiter string) string{
 
 func UpdateMap(value Element, acc *map[string]interface{}){
 	(*acc)[value.Key] = value.Value
+}
+
+func StringToInterface(old []string) (new []interface{}){
+	new = make([]interface{}, len(old))
+	for i, v := range old{
+		new[i] = interface{}(v)
+	}
+	return new
+}
+
+// O(n) loop up time
+func InList(value interface{}, list []interface{}) bool{
+	for i := range list{
+		if(value == list[i]){
+			return true
+		}
+	}
+	return false	
 }
 
 // function lang
